@@ -73,10 +73,12 @@ This model assumes that there is a linear relationship between the logit of the 
 The variables selected for the model after applying the stepwise selection (method that allows to select most influencial combination of variables) are:
 car_model + age_of_vehicle_years + total_services + mth_since_last_serv + annualised_mileage + num_dealers_visited + num_serv_dealer_purchased
 
-Confusion matrix result of the logistic regression model after applying the optimum cutoff: (see [Sensitivity / Specificity graph](https://github.com/SandraLeriche/classification/blob/master/images/sens_spec_log_reg.png) and [ROC curve](https://github.com/SandraLeriche/classification/blob/master/images/roc_curve_log_reg.png)
-![enter image description here](https://github.com/SandraLeriche/classification/blob/master/images/cm_log_reg.JPG)                        
+Confusion matrix result of the logistic regression model after applying the optimum cutoff: (see [Sensitivity / Specificity graph](https://github.com/SandraLeriche/classification/blob/master/images/sens_spec_log_reg.png) 
 
-With an accuracy of 0.87 and sensitivity of 0.65 which is the metric that we are aiming to optimise, it represents the amount of true positive out of all the positives (TP/P).
+![enter image description here](https://github.com/SandraLeriche/classification/blob/master/images/cm_log_reg.JPG)                        
+The ROC curve is available here: [ROC curve](https://github.com/SandraLeriche/classification/blob/master/images/roc_curve_log_reg.png)
+
+THe model has an accuracy of 0.87 and sensitivity of 0.65 which is the metric that we are aiming to optimise, it represents the amount of true positive out of all the positives (TP/P).
 
 ### Decision Tree
 
@@ -103,6 +105,7 @@ the Area under the curver (AUC), confusion matrix results, accuracy score and se
 AUC: 0.85% for logistic regression and 0.94% for the decision tree - over 90% being considered as excellent.
 
 Confusion matrix (predicted / actuals summary)
+
 ![enter image description here](https://github.com/SandraLeriche/classification/blob/master/images/cm_decision_tree.JPG)
 
 Sensitivity: 0.79 for the regression model, 0.87 for the decision tree. 
@@ -115,11 +118,14 @@ The decision tree model is the one classifying more "1"s as "1" with a higher ac
 
 Regression is separating the no/yes values through a line whereas a decision tree is using the variables that can split as many observations as possible into two categories from highest to lowest. 
 
-This explains the difference of variables being considered important for each model. For our regression model, the age of the vehicle, the total services, annualised mileage and number of services at the same dealer where the vehicle was purchased are highly impacting the decision of re-purchasing a vehicle. 
+This explains the difference of variables being considered important for each model. 
+
+For the regression model, the age of the vehicle, the total services, annualised mileage and number of services at the same dealer where the vehicle was purchased are highly impacting the decision of re-purchasing a vehicle. 
 
 This means that a loyal customer who is servicing his vehicle at the same location is more likely to buy again once his vehicle hits a certain age or mileage.
 
-For the decision tree, the important variables are mostly related to the services (months since the last service, check ups used under warranty, scheduled and paid services, total_services and the age of the vehicle regardless of the location of the services, but still using official dealerships. It also shows that loyalty to the brand (not specifically the local shop) and the image they have of the brand and services received is taken into consideration when the customer decides to buy another vehicle.
+For the decision tree, the important variables are mostly related to the services (months since the last service, check ups used under warranty, scheduled and paid services, total_services and the age of the vehicle regardless of the location of the services, but still using official dealerships.
+It also shows that loyalty to the brand (not specifically the local shop) and the image they have of the brand and services received is taken into consideration when the customer decides to buy another vehicle.
 
 The most Important variables for the business to collect and used for this specific model are "mth_since_last_serv" "sched_serv_warr" "sched_serv_paid" "total_services" "age_of_vehicle_years". 
 
