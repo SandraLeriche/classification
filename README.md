@@ -109,6 +109,7 @@ Confusion matrix (predicted / actuals summary)
 ![enter image description here](https://github.com/SandraLeriche/classification/blob/master/images/cm_decision_tree.JPG)
 
 Sensitivity: 0.79 for the regression model, 0.87 for the decision tree. 
+
 Accuracy: 0.87 regression model vs 0.93 for the decision tree
 
 The decision tree model is the one classifying more "1"s as "1" with a higher accuracy as well which is why this is the selected model.
