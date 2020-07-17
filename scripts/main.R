@@ -20,31 +20,61 @@ library(car)
 library(pdp)
 library(DMwR)
 library(rattle)
+library(funModeling)
+
+# Set working directory
+setwd("~/GitHub/classification/data")
 
 # Load Dataset
 repurchase_training <- read.csv("repurchase_training.csv")
 
 #### Exploration Data Analysis ####
 str(repurchase_training)
-glimpse(repurchase_training)
 head(repurchase_training)
 tail(repurchase_training)
 summary(repurchase_training) # Mean of Target = 0.02681
+df_status(repurchase_training) # No NAs, 97.32% of 0s in Target column
+
+# Function to order categorical variable in descending order
+reorder_size <- function(x) {
+  factor(x, levels = names(sort(table(x), decreasing = TRUE)))
+}
+
+# Rename target column for data hygiene
+repurchase_training <- repurchase_training %>% rename(target = Target)
 
 # Target as factor
-repurchase_training$Target <- as.factor(repurchase_training$Target)
+repurchase_training$target <- as.factor(repurchase_training$target)
 
-# % Of null in age_band
-(112375/nrow(repurchase_training))*100 # 85.5% - High proportion of null value - exclude
+# Drop ID column 
+repurchase_training <- repurchase_training[, -1]
 
-# Drop age
-repurchase_training$age_band <- NULL
+# Explore categorical variables
+table(reorder_size(repurchase_training$gender))
+table(reorder_size(repurchase_training$age_band))
+table(reorder_size(repurchase_training$car_model))
+table(reorder_size(repurchase_training$car_segment))
+table(repurchase_training$gender, repurchase_training$age_band)
 
-# % of null in gender
-(69308/nrow(repurchase_training))*100 # 52.77% - keep for now
+# Visually exploring dataset
+# Categorical variables
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(gender), fill = factor(target, levels = c("1", "0"))))
 
-# Drop ID 
-repurchase_training$ID <- NULL
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(age_band), fill = factor(target, levels = c("1", "0"))))
+
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(car_model), fill = factor(target, levels = c("1", "0"))))
+
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(car_segment), fill = factor(target, levels = c("1", "0"))))
+
+# Interesting numerical values showing target = 1 variance
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(as.factor(age_of_vehicle_years)), fill = factor(target, levels = c("1", "0"))))
+
+ggplot(data = repurchase_training) + geom_bar(mapping = aes(x = reorder_size(as.factor(sched_serv_warr)), fill = factor(target, levels = c("1", "0"))))
+
+# For numerical variables, the data has been split in deciles so it is evenly split into categories from 1 to 10. No outliers.
+
+# Drop age_band, gender due to high volume of missing values, 85.5% & 52.77%
+repurchase_training <- repurchase_training[, -c(2,3)]
 
 # Check for multicollinearity - drops non numeric variables automatically
 ggcorr(repurchase_training, method = "pairwise", label = TRUE)
@@ -56,15 +86,15 @@ set.seed(42)
 
 #### Train test split ####
 
-train_binary = createDataPartition(y = repurchase_training$Target, p = 0.7, list = F)
+train_binary = createDataPartition(y = repurchase_training$target, p = 0.7, list = F)
 training_binary = repurchase_training[train_binary, ]
 testing_binary = repurchase_training[-train_binary, ]
 
 # check if train/test is representative of the data set
-tbl_train <- table(training_binary$Target)
+tbl_train <- table(training_binary$target)
 tbl_train
 
-tbl_test <- table(testing_binary$Target)
+tbl_test <- table(testing_binary$target)
 tbl_test
 
 # in percentages
@@ -75,32 +105,43 @@ tbl_test_prop <- prop.table(tbl_test)
 tbl_test_prop
 
 # Compare to overall - train/test split is not balanced. 97.3% "No" and 2.7% "Yes"
-repurchase_prop <- prop.table(table(repurchase_training$Target))
+repurchase_prop <- prop.table(table(repurchase_training$target))
 repurchase_prop
 
 #### Logistic Regression model ####
-reg_model <- glm(Target ~  age_of_vehicle_years * (total_services + mth_since_last_serv + annualised_mileage) + num_serv_dealer_purchased + gender, data = training_binary, family = binomial)
+# train model with all variables except the ones showing multicollinearity
+reg_model <- glm(target ~ car_model + car_segment + age_of_vehicle_years + total_services + 
+                   mth_since_last_serv + annualised_mileage + num_dealers_visited + 
+                   num_serv_dealer_purchased, data = training_binary, family = binomial)
 
+# analyse results
 summary(reg_model)
 
+# perform stepwise selection to keep most impactful variables
+step <- stepAIC(reg_model, direction="both", trace=FALSE)
+step$anova
+
+# train final model by removing car_segment which was not significant based on stepwise selection
+reg_model <- glm(target ~ car_model + age_of_vehicle_years + total_services + 
+                         mth_since_last_serv + annualised_mileage + num_dealers_visited + 
+                         num_serv_dealer_purchased, data = training_binary, family = binomial)
 
 # Prediction object on the training data
 training_binary$probability <- predict(reg_model, newdata = training_binary[, -1], type = "response")
 training_binary$predictions <- ifelse(training_binary$probability > 0.02681, 1, 0)
-train_pred = prediction(training_binary$probability, training_binary$Target)
+train_pred = prediction(training_binary$probability, training_binary$target)
 
 # Prediction object on the testing data
 testing_binary$probability <- predict(reg_model, newdata = testing_binary[,-1], type = "response")
 testing_binary$predictions <- ifelse(testing_binary$probability > 0.02681, 1, 0)
 
-test_pred = prediction(testing_binary$probability, testing_binary$Target)
+test_pred = prediction(testing_binary$probability, testing_binary$target)
 
 testing_binary$predictions <- as.factor(testing_binary$predictions)
-testing_binary$Target <- as.factor(testing_binary$Target)
-
+testing_binary$target <- as.factor(testing_binary$target)
 
 # Confusion matrix
-confusionMatrix(data = testing_binary$predictions, reference = testing_binary$Target,
+confusionMatrix(data = testing_binary$predictions, reference = testing_binary$target,
                 mode = "everything", positive="1")
 
 # tpr and fpr for training
@@ -165,7 +206,7 @@ testing_binary$predictions <- ifelse(testing_binary$probability > threshold, 1, 
 testing_binary$predictions <- as.factor(testing_binary$predictions)
 
 # New confusion matrix after using optimum cutoff
-confusionMatrix(data = testing_binary$predictions, reference = testing_binary$Target,
+confusionMatrix(data = testing_binary$predictions, reference = testing_binary$target,
                 mode = "everything", positive="1")
 
 # New AUC after using optimum cutoff
@@ -176,11 +217,8 @@ test_auc <- performance(test_pred, "auc")
 test_auc <- unlist(slot(test_auc, "y.values"))
 test_auc
 
-# Variable importance measures
-varImp(reg_model)
-
-
 #### Decision Tree model ####
+
 # Reset Training and Testing set
 training_binary <- training_binary[, -c(16:17)]
 testing_binary <- testing_binary[, -c(16:17)]
@@ -195,23 +233,19 @@ ctrl <- trainControl(method = "cv",
                      sampling = "smote")
 
 # Change levels of dependent variable to run through train function
-training_binary$Target <- as.factor(training_binary$Target)
-levels(training_binary$Target) <- c("No", "Yes")
+levels(training_binary$target) <- c("No", "Yes")
 
 # Build Decision Tree Model
-rpart_model <- train(Target ~ ., data = training_binary, 
+rpart_model <- train(target ~ ., data = training_binary, 
                      method = "rpart",
                      metric = "ROC",
                      trControl = ctrl)
 
-# Plot Decision Tree
-fancyRpartPlot(rpart_model$finalModel)
-
 # View model
 rpart_model$results # Look for CP to prune tree
 
-# Prune Tree to avoid overfitting using cp 0.002
-rpart_model <- train(Target ~ ., data = training_binary, 
+# Prune Tree to avoid overfitting using cp 0.0027
+rpart_model <- train(target ~ ., data = training_binary, 
                      method = "rpart",
                      metric = "ROC",
                      trControl = ctrl,
@@ -222,9 +256,9 @@ fancyRpartPlot(rpart_model$finalModel)
 
 # Predict on test set
 testing_binary$probability <- predict(rpart_model,testing_binary[,-1],type="prob")
-test_pred <- prediction(testing_binary$probability[,2], testing_binary$Target)
+test_pred <- prediction(testing_binary$probability[,2], testing_binary$target)
 
-# Check confusion matrix
+# Check confusion matrix - 2.4% out of 2.7% of "Yes/1" are captured
 confusionMatrix(rpart_model,
                 mode = "everything", positive="Yes")
 
@@ -270,7 +304,7 @@ levels(testing_binary$prediction_cutoff) <- c("0","1")
 testing_binary$probability = testing_binary$probability[,2]
 
 # Confusion matrix Decision Tree Model
-confusionMatrix(data = testing_binary$prediction_cutoff, reference = testing_binary$Target,
+confusionMatrix(data = testing_binary$prediction_cutoff, reference = testing_binary$target,
                 mode = "everything", positive="1")
 
 
@@ -317,6 +351,6 @@ validation <- data.frame(ID = repurchase_validation$ID,
                          target_class = repurchase_validation$prediction)
 
 # export validation as csv
-# write.csv(validation, "repurchase_validation_14031708.csv", row.names=FALSE)
+# write.csv(validation, "repurchase_validation_predictions.csv", row.names=FALSE)
 
 
